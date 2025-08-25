@@ -1,39 +1,29 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 
-public class CameraRenderer
+public partial class CameraRenderer
 {
     ScriptableRenderContext context;
     Camera camera;
     CullingResults cullingResults;
 
-    static ShaderTagId unlitShaderTagId = new ShaderTagId("SRPDefaultUnlit");
     const string kBufferName = "Render Camera";
     CommandBuffer buffer = new CommandBuffer { name = kBufferName };
-
-
-    // This is for drawing unsupported shaders (optional)
-    static Material errorMaterial;
-    static ShaderTagId[] legacyShaderTagIds = {
-        new ShaderTagId("Always"),
-        new ShaderTagId("ForwardBase"),
-        new ShaderTagId("PrepassBase"),
-        new ShaderTagId("Vertex"),
-        new ShaderTagId("VertexLMRGBM"),
-        new ShaderTagId("VertexLM")
-    };
+    static ShaderTagId unlitShaderTagId = new ShaderTagId("SRPDefaultUnlit");
 
     public void Render(ScriptableRenderContext context, Camera camera)
     {
         this.context = context;
         this.camera = camera;
 
+        PrepareForSceneWindow();
         if (!Cull())
             return;
 
         Setup();
         DrawVisibleGeometry();
         DrawUnsupportedShaders();
+        DrawGizmos();
         Submit();
     }
 
@@ -95,27 +85,6 @@ public class CameraRenderer
         // This is because scene objects are sorted back to front, which doesn't guarantee correct blending.
         // Intersecting & large transparent objects can still produce incorrect results, so breaking them up
         // into smaller geometries can sometimes solve it.
-    }
-
-    void DrawUnsupportedShaders()
-    {
-        if (errorMaterial == null)
-            errorMaterial = new Material(Shader.Find("Hidden/InternalErrorShader"));
-
-        var drawingSettings = new DrawingSettings(legacyShaderTagIds[0], new SortingSettings(camera));
-        drawingSettings.overrideMaterial = errorMaterial;
-        var renderListParams = new RendererListParams()
-        {
-            cullingResults = this.cullingResults,
-            drawSettings = drawingSettings,
-            filteringSettings = FilteringSettings.defaultValue
-        };
-
-        for (int i = 1; i < legacyShaderTagIds.Length; i++)
-            renderListParams.drawSettings.SetShaderPassName(i, legacyShaderTagIds[i]);
-
-        var unsupported = context.CreateRendererList(ref renderListParams);
-        buffer.DrawRendererList(unsupported);
     }
 
     void Submit()
